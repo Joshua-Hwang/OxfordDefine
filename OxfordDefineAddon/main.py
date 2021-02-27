@@ -36,12 +36,14 @@ def insertDefinition(editor):
             tooltip(f"OxfordDefine: Could not root words for {word}.")
             return
 
+    # Format word
     definition = ""
     soundURLs = set()
     for result in wordInfos['results']:
         for lexical in result:
             ########## Definition format ##########
-            definition += '<h2>' + lexical['lexicalCategory'] + '.</h2>'
+            definition += '<hr>'
+            definition += '<b>' + lexical['lexicalCategory'] + '.</b><br>'
             for entry in lexical['entries']:
                 if "pronunciations" in entry: # sounds saved for later
                     soundURLs.update(entry["pronunciations"])
@@ -56,10 +58,10 @@ def insertDefinition(editor):
                     definition += '</p>'
 
                 if 'etymologies' in entry:
-                    definition += '<h3>Origins:</h3> '
+                    definition += '<h5>Origins:</h5> '
                     definition += '<br>'.join(entry['etymologies']) + '<br>'
                 if 'notes' in entry:
-                    definition += '<h3>Notes:</h3> '
+                    definition += '<h5>Notes:</h5> '
                     definition += '<br>'.join(entry['notes']) + '<br>'
 
     ############# Output ##############
