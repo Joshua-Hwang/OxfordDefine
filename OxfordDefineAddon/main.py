@@ -1,9 +1,13 @@
 import os
+import sys
 import json
 
-from . import oxford
 from anki.hooks import addHook
+from aqt import mw
 from aqt.utils import showInfo, tooltip
+from requests.exceptions import HTTPError
+
+from .oxford import setOxfordKey, getLemmas, getEntry
 
 KEY_FIELD = 0 # already contains word and must append audio
 DEFINITION_FIELD = 1
@@ -20,35 +24,53 @@ def insertDefinition(editor):
         tooltip("OxfordDefine: No text found in note fields.")
         return
 
-    wordInfos = oxford.getEntry(word)
-    if not wordInfos:
-        lemmas = oxford.getLemmas(word)
+    try:
+        wordInfos = getEntry(word)
+        if not wordInfos:
+            raise HTTPError() # jump to exception handling
+    except HTTPError as e:
         try:
-            wordInfos = oxford.getEntry(lemmas[0])
-        except KeyError as e:
+            lemmas = getLemmas(word)
+            wordInfos = getEntry(lemmas[0])
+        except (HTTPError, KeyError) as e:
             tooltip(f"OxfordDefine: Could not root words for {word}.")
             return
 
     definition = ""
-    allSounds = []
-    for wordInfo in wordInfos['results']:
-        ################# Audio #################
-        if "pronunciations" in wordInfo:
-            allSounds = [editor.urlToLink(url).strip() for url in wordInfo["pronunciations"]]
+    soundURLs = set()
+    for result in wordInfos['results']:
+        for lexical in result:
+            ########## Definition format ##########
+            definition += '<h2>' + lexical['lexicalCategory'] + '.</h2>'
+            for entry in lexical['entries']:
+                if "pronunciations" in entry: # sounds saved for later
+                    soundURLs.update(entry["pronunciations"])
 
-        ########## Definition format ##########
-        definition += '<b>' + wordInfo['lexicalCategory'] + '.</b><br>'
-        definition += '<br>'.join(wordInfo['definitions']) + '<br>'
-        if 'example' in wordInfo:
-            definition += 'e.g. ' + f'"{wordInfo["example"]}"' + '<br>'
-        if 'etymologies' in wordInfo:
-            definition += '<br>'.join(wordInfo['etymologies']) + '<br>'
-        definition += "<br>"
+                for sense in entry['senses']:
+                    definition += '<p>'
+                    definition += '<br>'.join(sense['definitions']) + '<br>'
+                    if 'example' in sense:
+                        definition += '<b>e.g.</b> ' + '"' + sense['example'] + '"' + '<br>'
+                    if 'notes' in entry:
+                        definition += '<b>notes:</b> ' + '<br>'.join(entry['notes']) + '<br>'
+                    definition += '</p>'
+
+                if 'etymologies' in entry:
+                    definition += '<h3>Origins:</h3> '
+                    definition += '<br>'.join(entry['etymologies']) + '<br>'
+                if 'notes' in entry:
+                    definition += '<h3>Notes:</h3> '
+                    definition += '<br>'.join(entry['notes']) + '<br>'
 
     ############# Output ##############
-    editor.note.fields[KEY_FIELD] = wordInfos["id"] + '<br>'.join(set(allSounds))
+    sounds = [editor.urlToLink(url).strip() for url in soundURLs]
+    editor.note.fields[KEY_FIELD] = wordInfos["word"] + ''.join(sounds)
     editor.note.fields[DEFINITION_FIELD] = definition
     editor.loadNote()
+
+    # Focus back on zero field
+    if editor.web:
+        editor.web.eval("focusField(0);")
 
 def addMyButton(buttons, editor):
     oxfordButton = editor.addButton(icon=os.path.join(os.path.dirname(__file__), "images", "books16.png"),
@@ -63,4 +85,7 @@ def addMyButton(buttons, editor):
     return buttons
 
 addHook("setupEditorButtons", addMyButton)
+
+config = mw.addonManager.getConfig(__name__) # type: ignore
+setOxfordKey(config["APP_ID"], config["APP_KEY"]) # type: ignore
 
