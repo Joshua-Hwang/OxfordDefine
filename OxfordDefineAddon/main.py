@@ -11,9 +11,24 @@ from .oxford import setOxfordKey, getLemmas, getEntry
 
 KEY_FIELD = 0 # already contains word and must append audio
 DEFINITION_FIELD = 1
+
+WHAT_TO_INSERT = "all"
 PRIMARY_SHORTCUT = "ctrl+alt+d"
 
+def getConfig():
+    global WHAT_TO_INSERT
+    global PRIMARY_SHORTCUT
+    config = mw.addonManager.getConfig(__name__) # type: ignore
+    setOxfordKey(config["APP_ID"], config["APP_KEY"]) # type: ignore
+
+    WHAT_TO_INSERT = config["WHAT_TO_INSERT"] # type: ignore
+    # This won't actually be updated for the button
+    PRIMARY_SHORTCUT = config["PRIMARY_SHORTCUT"] # type: ignore
+
 def insertDefinition(editor):
+    # update config
+    getConfig()
+
     # Get the word
     word = ""
     try:
@@ -65,9 +80,11 @@ def insertDefinition(editor):
                     definition += '<br>'.join(entry['notes']) + '<br>'
 
     ############# Output ##############
-    sounds = [editor.urlToLink(url).strip() for url in soundURLs]
-    editor.note.fields[KEY_FIELD] = wordInfos["word"] + ''.join(sounds)
-    editor.note.fields[DEFINITION_FIELD] = definition
+    if WHAT_TO_INSERT == 'all' or WHAT_TO_INSERT == 'pronunciation':
+        sounds = [editor.urlToLink(url).strip() for url in soundURLs]
+        editor.note.fields[KEY_FIELD] = wordInfos["word"] + ''.join(sounds)
+    if WHAT_TO_INSERT == 'all' or WHAT_TO_INSERT == 'text':
+        editor.note.fields[DEFINITION_FIELD] = definition
     editor.loadNote()
 
     # Focus back on zero field
@@ -86,8 +103,5 @@ def addMyButton(buttons, editor):
     buttons.append(oxfordButton)
     return buttons
 
+getConfig()
 addHook("setupEditorButtons", addMyButton)
-
-config = mw.addonManager.getConfig(__name__) # type: ignore
-setOxfordKey(config["APP_ID"], config["APP_KEY"]) # type: ignore
-
