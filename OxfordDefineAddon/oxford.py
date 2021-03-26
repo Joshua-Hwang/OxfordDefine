@@ -37,13 +37,27 @@ def getLemmas(word, app_id=None, app_key=None, language=language) -> List[str]:
                 res.append(inflection["id"])
     return res
 
-def getEntry(word, app_id=None, app_key=None, language=language) -> object:
+def getEntry(word, app_id=None, app_key=None, language=language):
+    if app_id is None or app_key is None:
+        app_id = APP_ID
+        app_key = APP_KEY
+
+    url = base_url + "/entries/" + language + '/' + word
+    r = requests.get(url, headers = {"app_id": app_id, "app_key": app_key})
+
+    if not r.ok:
+        raise requests.exceptions.HTTPError(response=r)
+
+    return r.json()
+
+def formatEntry(word, app_id=None, app_key=None, language=language) -> object:
     """returns an empty dict if the entry can't be found
     returning: {
         word: str,
         results: List[
             List[{
                 lexicalCategory: str,
+                derivatives: List[str],
                 entries: List[{
                     pronunciation: List[str],
                     senses: List[{
@@ -57,28 +71,21 @@ def getEntry(word, app_id=None, app_key=None, language=language) -> object:
             }]
         }]
     }"""
-    if app_id is None or app_key is None:
-        app_id = APP_ID
-        app_key = APP_KEY
-
-    #print("getEntry", file=sys.stderr)
-
-    url = base_url + "/entries/" + language + '/' + word
-    r = requests.get(url, headers = {"app_id": app_id, "app_key": app_key})
+    r = getEntry(word, app_id, app_key, language)
 
     returning: Dict = {}
-    if not r.ok:
-        raise requests.exceptions.HTTPError(response=r)
-
-    returning["word"] = r.json()["word"]
+    returning["word"] = r["word"]
     returning["results"] = []
-    results = r.json()["results"]
+    results = r["results"]
+
     for result in results:
 
         myResult: List[object] = []
         for lexicalEntry in result["lexicalEntries"]:
             myLexical: Dict = {}
             myLexical["lexicalCategory"] = lexicalEntry["lexicalCategory"]["text"]
+            if "derivatives" in lexicalEntry:
+                myLexical["derivatives"] = [d["text"] for d in lexicalEntry["derivatives"]]
 
             myLexical["entries"] = []
             for entry in lexicalEntry["entries"]:

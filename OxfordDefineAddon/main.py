@@ -7,7 +7,7 @@ from aqt import mw
 from aqt.utils import showInfo, tooltip
 from requests.exceptions import HTTPError
 
-from .oxford import setOxfordKey, getLemmas, getEntry
+from .oxford import setOxfordKey, getLemmas, formatEntry
 
 KEY_FIELD = 0 # already contains word and must append audio
 DEFINITION_FIELD = 1
@@ -40,13 +40,13 @@ def insertDefinition(editor):
         return
 
     try:
-        wordInfos = getEntry(word)
+        wordInfos = formatEntry(word)
         if not wordInfos:
             raise HTTPError() # jump to exception handling
     except HTTPError as e:
         try:
             lemmas = getLemmas(word)
-            wordInfos = getEntry(lemmas[0])
+            wordInfos = formatEntry(lemmas[0])
         except (HTTPError, KeyError) as e:
             tooltip(f"OxfordDefine: Could not root words for {word}.")
             return
@@ -78,6 +78,9 @@ def insertDefinition(editor):
                 if 'notes' in entry:
                     definition += '<h5>Notes:</h5> '
                     definition += '<br>'.join(entry['notes']) + '<br>'
+            if 'derivatives' in lexical:
+                definition += '<h5>Derivatives:</h5> '
+                definition += '<br>'.join(lexical['derivatives']) + '<br>'
 
     ############# Output ##############
     if WHAT_TO_INSERT == 'all' or WHAT_TO_INSERT == 'pronunciation':
