@@ -10,3 +10,7 @@ Don't forget to add your own Oxford API ID and key before using the addon.
 
 ## Preview
 ![Here is a preview](screenshots/preview.png)
+
+## Install from source
+To install from source add the `OxfordDefineAddon` folder to
+you anki addon folder.
